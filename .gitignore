@@ -5,15 +5,18 @@
 # Session Data files
 .RData
 
-# Example code in package build process
-*-Ex.R
-
 # RStudio files
 .Rproj.user/
+*.proj
+*.Rproj
+
+# intermediate rmarkdown/pandoc/latex files
+extra1.tex
+extra2.tex
+*_files
 
 # produced vignettes
 vignettes/*.html
 vignettes/*.pdf
+.Rproj.user
 
-# OAuth2 token, see https://github.com/hadley/httr/releases/tag/v0.3
-.httr-oauth

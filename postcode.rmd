@@ -1,0 +1,169 @@
+---
+params:
+  include: !r FALSE
+title: "Getting location information with the Google Maps API"
+author: "Han Oostdijk (www.hanoostdijk.nl)"
+date: "March 10, 2016"
+graphics: yes
+linkcolor: blue
+output: 
+  pdf_document:
+    includes:
+      in_header: 
+      - 'styles.tex'
+    keep_tex: yes
+geometry: 
+  - a4paper 
+  - portrait
+  - margin=1in
+---
+
+# Introduction
+Google Maps is well known as an interface to view maps. In this document we use the 
+[Google Maps Geocoding API](https://developers.google.com/maps/web-services/) 
+to lookup addresses. For more than incidental work a 
+[license](https://developers.google.com/maps/documentation/geolocation/usage-limits) 
+could be necessary.  
+
+We will use R to do this but it can also be done in other environments such as e.g. javascript, Python or PHP.
+We show how the API returns an XML-file as response to an address input. The input can be a full address or a uniquely identifying part of it. It is assumed that the XML-file contains at most one result. For more than one result a loop over the result item would be needed as shown in example 6 in the [Example of use]( #Exampleofuse) section. 
+On special request this could be done :) .  
+
+# Used libraries
+```{r echo=T,message=F,warning=F}
+library(xml2)
+library(magrittr)
+library(xtable)
+```
+```{r child='setup.rmd'}
+```
+```{r echo=F}
+cape1="results for address 'Runmoolen 24 Amstelveen Nederland'" 
+cape2="results for address '1181 NL'"
+cape3="results for address 'Amstelveen NL'"
+cape4="results for address 'Nederland NL'" 
+cape5="results for address 'X Y Z'" 
+```
+
+# Utility functions
+## Request an XML document from the API
+The \mytextbf{read\_address} function actually reads the information from the Google website. It returns an XML-document. When you want to see the contents of the document,  uncomment the line with  \mytextbf{write\_xml}.
+```{r}
+read_address <-function(address) {
+  url <- paste0('http://maps.google.com/maps/api/geocode/xml',
+                    '?sensor=false&address=',url_escape(address))
+  doc <- read_xml(url)
+  # write_xml(doc, 'temp.xml')
+  return(doc)
+}
+```  
+## Get type(s) from document
+The XML document contains elements that describe an attribute of the address such as the country, administrative area (in the Netherlands a province) or location. The \mytextit{type} tag indicates which  attribute it concerns. The \mytextbf{address\_data} function select a list of types from the document and uses the \mytextbf{get\_type} function for each of these. For some addresssen not all types are present: e.g. when the address is a country, the postcode is not present. The line with \mytextit{gsub} handles that. \mytextit{Types} is a list with in the first element the types that are collected and in the second one the names that they will be assigned.
+```{r}
+get_type <-function(tt,type_nodes) {
+  z=grepl(tt,sapply(type_nodes,xml_text))
+  xml_text(xml_find_all(xml_parent(type_nodes[z]),"./long_name"))
+}
+address_data <-function(doc,types) {
+  type_nodes = xml_find_all(doc, ".//type")
+  w=sapply(types$i,function(x) {get_type(x,type_nodes)})
+  w=as.character(w); w=gsub("character(0)","",w,fixed=T)
+  names(w)=types$o
+  return(w)
+}
+```  
+## Get coordinates from document
+The coordinates are given in \mytextbf{lat} (latitude or \mytextit{breedte} in Dutch) and  \mytextbf{long} (longitude or \mytextit{lengte}). The document contains (in my experience) three sets of these pairs. The first set is found in the element \mytextit{location} and indicates the coordinates of the centre of the address. The second set is found in the element \mytextit{viewport/southwest} and indicates the coordinates of the southwest corner of the address and the third one indicates the northeast corner of the address. The \mytextbf{tc} parameter indicates the element and the \mytextbf{n} parameter the names these coordinates will get.
+```{r}
+coord_data <-function(doc,tc='location',n=c('lat','lng')) {
+  loc = xml_find_all(doc, paste0(".//",tc))
+  lat = loc %>% xml_find_all(".//lat") %>% xml_text() 
+  lng = loc %>% xml_find_all(".//lng") %>% xml_text() 
+  w   = c(lat,lng)
+  names(w)=n
+  w
+}
+```  
+## Print data.frame
+The function \mytextbf{print\_adress} prints a data.frame . In this example it is used to print the results of the examples. Apart from the data.frames there are parameters to indicate the \LaTeX\ label and caption and the number of digits that will be shown.
+```{r}
+def_tab <- function (label_name,label_tekst)  { 
+  paste0(label_tekst,"\\label{table:",label_name,"}")
+}
+
+print_adress <- function (df,lbl,cap,digits=3) {
+  print(xtable(df,caption=def_tab(lbl,cap),digits=digits), 
+    rownames=F, table.placement='!htbp')
+}
+```  
+# Get all data for an address
+The \mytextbf{all\_data} function combines the utility functions and creates a character vector with the attributes of the address and all its coordinates. When the API does not return results (maybe an invalid address was specified) the function does not return a vector but the boolean value `r F`.
+```{r}
+all_data <- function(address,n=c('lat','lng')) {
+  doc = read_address(address)
+  if (xml_find_all(doc, ".//status") %>% xml_text() == "ZERO_RESULTS") {
+    return(F)
+  }
+  types = list(i=c('postal_code','locality',
+                      'administrative_area_level_1','country'),
+               o=c('postcode','location','level2','country') )
+  a1=address_data(doc,types)
+  c1=coord_data(doc,n=n)
+  c2=coord_data(doc,'viewport/southwest',n=paste0('sw_',n))
+  c3=coord_data(doc,'viewport/northeast',n=paste0('ne_',n))
+  c(a1,c1,c2,c3)
+}
+```  
+# Example of use {#Exampleofuse}
+In this example we give the results from 6 different calls to the API on page  \pageref{table:e1}:
+
+- with the full address in Dutch. Results in Table \ref{table:e1}. NB: the country indication is in English.
+- with only the numeric part of the postcode and the country indication \mytextit{NL}. Results in Table \ref{table:e2}.
+- with only the location (\mytextit{Amstelveen}) and the country indication \mytextit{NL}. Results in Table \ref{table:e3}.
+- with only the country (\mytextit{Nederland}) and the country indication \mytextit{NL}. Results in Table \ref{table:e4}.
+- with (what I thought to be) an invalid address. Apparently the API links this to the country \mytextit{Italy}. Results in Table \ref{table:e5}.
+- with only the country (\mytextit{Nederland}) and without the country indication. In the introduction we already said that this code currently works only when there is at most one result. The result of \mytextit{print(e6)} shows garbled output.
+
+
+```{r results = 'asis'}
+e1=all_data('Runmoolen 24 Amstelveen Nederland') 
+e2=all_data('1181 NL') 
+e3=all_data('Amstelveen NL') 
+e4=all_data('Nederland NL') 
+e5=all_data('X Y Z')
+e6=all_data('Nederland')
+print(e6)
+```  
+
+## Convert to data.frame
+We convert the vectors in e1 ...e5 to a data.frame for a better presentation.
+```{r}
+e = matrix(c(e1,e2,e3,e4,e5),nrow=5,byrow=T)
+e = data.frame(pc=e[,1],loc=e[,2],prov=e[,3],cntr=e[,4],
+        lat=as.numeric(e[,5]),   long=as.numeric(e[,6]),
+        slat=as.numeric(e[,7]), wlong=as.numeric(e[,8]),
+        nlat=as.numeric(e[,9]), elong=as.numeric(e[,10])   )
+```
+
+## Print the rows of the  data.frame (separately)
+By printing the rows separately we can give them individually a caption for better readability.
+```{r eval=F}
+print_adress(e[1,],'e1',cape1,digits=2)
+print_adress(e[2,],'e2',cape2,digits=2)
+print_adress(e[3,],'e3',cape3,digits=2)
+print_adress(e[4,],'e4',cape4,digits=2)
+print_adress(e[5,],'e5',cape5,digits=2)
+```
+```{r echo=F,results='asis'}
+print_adress(e[1,],'e1',cape1,digits=2)
+print_adress(e[2,],'e2',cape2,digits=2)
+print_adress(e[3,],'e3',cape3,digits=2)
+print_adress(e[4,],'e4',cape4,digits=2)
+print_adress(e[5,],'e5',cape5,digits=2)
+```  
+\clearpage
+
+# Session Info
+```{r}
+sessionInfo()
+```

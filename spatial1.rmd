@@ -1,0 +1,161 @@
+---
+params:
+  include: !r FALSE
+title: "Creating plot of municipalities around Amstelveen"
+author: "Han Oostdijk (www.hanoostdijk.nl)"
+date: "March 11, 2016"
+graphics: yes
+linkcolor: blue
+output: 
+  pdf_document:
+    includes:
+      in_header: 
+      - 'styles.tex'
+      - 'styles_hi.tex'
+    keep_tex: no
+geometry: 
+  - a4paper 
+  - portrait
+  - margin=1in
+---
+
+# Introduction
+We will use R to create a plot of Amstelveen and its surrounding municipalities.
+Input is the file \mytextbf{Gemeentegrenzen.gml} that was downloaded from  [www.pdok.nl](https://www.pdok.nl/nl/producten/pdok-downloads/basis-registratie-kadaster/bestuurlijke-grenzen-actueel) on 7 March 2016.
+
+## Used libraries
+```{r echo=T,message=F,warning=F}
+library(rgdal)
+library(ggplot2)
+library(rgeos)
+library(maptools)
+library(dplyr)
+library(magrittr)
+```
+
+```{r child='setup.rmd'}
+```
+
+
+```{r echo=F}
+fig_cap1 ='Municipalities around Amstelveen'
+```
+
+# Read the data set into a data.frame
+
+## Read the data set and check the layers
+We unpacked from the zip-file the file with boundaries for the municipalities. This file is in \mytextbf{gml} format and this can be read with \mytextbf{readOGR} function of the \mytextbf{rgdal} package.
+```{r}
+dsn        = "D:/data/maps/Gemeentegrenzen.gml"
+mylayers   = ogrListLayers(dsn)
+mun       = readOGR(dsn, mylayers[1])
+class_mun = class(mun)
+print(class_mun)
+```
+From the output we see that we have read layer \mytextbf{`r mylayers`} (Dutch for \mytextbf{Municipalities}) and that the resulting object \mytextbf{mun} is of class \mytextbf{`r class_mun[1]`}.
+
+## Convert the object to coordinates with standard longitude and latitude 
+I just selected the CRS in the code and apparently this works: in the final plot 
+(`r ref_tab('r1','F',prefix='')`) the correct coordinates are printed.
+```{r}
+mun <- spTransform(mun, CRS("+init=epsg:4238"))
+```
+
+## Convert the object to a data.frame with coordinates
+We use the  \mytextbf{fortify} function to obtain a data.frame with the coordinates of the municipalities. Because we lose the describing information in this way, we have to merge this information with the coordinates. I have not found an automated way specify the merge key, so the merging is still an ad-hoc procedure. Here I use the  \mytextbf{rownames} of the data.frame as the merge-key.
+```{r}
+mun <- spTransform(mun, CRS("+init=epsg:4238"))
+
+mun.f <- fortify(mun) # mun.f <- fortify(mun,region='id') 
+head(mun.f,n=3)
+head(mun@data,n=3)
+mun@data$id = rownames(mun@data)
+mun.f <- merge(mun.f, mun@data, by.x = "id", by.y = "id")
+head(mun.f,n=3)
+```
+
+# Create the data.frame that is needed for the plot
+First we have to determine which municipalities surround Amstelveen. We do this by considering the smallest rectangle (parallel to longitude and latitude circles) that contains Amstelveen. Then we determine which municipaties have coordinates in or touching this rectangle. For these municipalities we select all the coordinates.
+
+## Smallest rectangle containing Amstelveen
+```{r}
+mun.b = mun.f %>%
+  filter(Gemeentenaam == c('Amstelveen'))  %>% 
+  summarize(
+    minlat  = min(lat),
+    maxlat  = max(lat),
+    minlong = min(long),
+    maxlong = max(long))
+```
+
+## Municipalities with coordinates in or at the rectangle
+```{r}
+mun.b = mun.f %>%
+  group_by(Gemeentenaam) %>%
+  filter(long>=mun.b$minlong & long<=mun.b$maxlong & 
+      lat >= mun.b$minlat & lat <= mun.b$maxlat)  %>%
+  summarize(n= n()) %>% 
+  ungroup() %>%
+  select(Gemeentenaam)
+```
+
+## All coordinates of municipalities with coordinates in or at the rectangle
+By doing an \mytextit{inner-join} we keep the coordinates from \mytextbf{mun.f} for only the municipalities that were selected.
+```{r}
+mun.a = mun.f %>%
+  inner_join(mun.b,by=c('Gemeentenaam'='Gemeentenaam')) %>%
+  ungroup() %>%
+  mutate( Gemeentenaam = Gemeentenaam,
+          fill         = as.character(Gemeentenaam),
+          fill         = factor(ifelse(hole==T,NA,fill)))
+  #   %>% arrange(Gemeentenaam,group,piece,order) # apparently not necessary
+``` 
+
+# Create the data.frame with label information and fill information
+We want to plot in the centre of the municipality a label with its name. That is why we again calculate the smallest rectangle that encloses the municipality and take as centre the midpoint of this rectangle. For the labels we will use the same fill attributes.
+
+## Calculate centre of municipalities 
+We calculate the centre and use 'Gemeentenaam' to color the municipalities.
+```{r}
+mun.n = mun.a %>% 
+  group_by(Gemeentenaam) %>%
+  summarize(minlat  = min(lat),
+            maxlat  = max(lat),
+            minlong = min(long),
+            maxlong = max(long),
+            fill    = last(Gemeentenaam)) %>%
+  mutate(   cenlat  = (minlat+maxlat)/2,
+            cenlong = (minlong+maxlong)/2) %>%
+  select(  Gemeentenaam,lat=cenlat,long=cenlong,fill) 
+```
+
+# Plot the municipalities
+The final plot can be found `r ref_tab('r1','F')`. 
+The formatting functions were found on [StackOverflow](http://stackoverflow.com/questions/33302424/format-latitude-and-longitude-axis-labels-in-ggplot). They make use of 
+[plotmath](https://stat.ethz.ch/R-manual/R-devel/library/grDevices/html/plotmath.html).
+```{r r1,fig.cap=fig_cap1,out.width="7in",out.height="7in"}
+format_WE <- function(x) {
+  xf = sprintf('%.1f',x) ;   d  = "*degree" 
+  ifelse(x < 0, parse(text=paste0(xf,d, "*~W")), 
+    ifelse(x > 0, parse(text=paste0(xf,d, "*~E")),xf))
+}
+format_NS <- function(x) {
+  xf = sprintf('%.1f',x) ;  d  = "*degree"
+  ifelse(x < 0, parse(text=paste0(xf,d, "*~S")), 
+    ifelse(x > 0, parse(text=paste0(xf,d, "*~N")),xf))
+}
+ggplot( mun.a,
+  aes(long, lat, color=fill, fill=fill, label=fill)) + 
+  scale_fill_hue() +
+  geom_polygon(aes(group = group),color='black') + 
+  geom_label(data=mun.n,color='black',show.legend=FALSE) +
+  labs(x = "longitude", y = "latitude") + 
+  scale_x_continuous(labels=format_WE) +
+  scale_y_continuous(labels=format_NS) +
+  theme(legend.title=element_blank())
+  # ggtitle("Municipalities around Amstelveen")
+```
+# Session Info
+```{r}
+sessionInfo()
+```

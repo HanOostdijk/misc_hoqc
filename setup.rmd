@@ -1,0 +1,43 @@
+```{r setup, include=FALSE, cache=FALSE,warning=FALSE,message=FALSE} 
+
+library(knitr)
+now_latex = identical(knitr:::pandoc_to(), 'latex')
+now_html  = identical(knitr:::pandoc_to(), 'html')
+opts_chunk$set(fig.show='hold',tidy=FALSE,
+  fig.width=8,fig.height=8,fig.align="center",fig.scap=NA,highlight = T,
+  fig.cap='figmmain0',fig.subcap=c('figsub1','figsub2'),fig.pos='!htbp')
+if ( now_latex ) {
+  knit_hooks$set(plot = hook_plot_tex)
+  opts_chunk$set( out.width="3in",out.height="3in")
+}
+if ( now_html ) knit_hooks$set(plot = hook_plot_html)
+
+options(replace.assign=TRUE,width=90,xtable.comment = F)
+
+incl_graphics <- function(pathname,caption,label, 
+  widthperc=90,pos="[htbp!]",extra_latex="\\centering") {
+  cat( sprintf('\n\\begin{figure}%s%s',pos,extra_latex) )
+  cat( sprintf('\n\\includegraphics[width=%6.4f\\linewidth]{%s}',widthperc/100,pathname) )
+  cat( sprintf('\n\\caption{\\label{%s}%s}',label,caption) )
+  cat('\n\\end{figure}\n')
+}
+def_tab <- function (label_name,label_tekst)          
+{ if ( now_latex ) {
+  paste0(label_tekst,"\\label{table:",label_name,"}")
+} else {""}
+}
+ref_tab <- function (label_name,table=T,add_page=T,prefix='in') { 
+  if (!now_latex) return("")
+  if (table==T) {
+    obj1 = 'Table' ;  obj2 = 'table' ;
+  }  else {
+    obj1 = 'Figure' ; obj2 = 'fig' ;
+  }
+  t = sprintf('%s %s\\mytilde\\ref{%s:%s}',prefix, obj1, obj2, label_name)
+  if (add_page == T) {
+    t =paste(t,sprintf('on page\\mytilde\\pageref{%s:%s}',obj2, label_name))
+  }
+  return(t)
+} 
+
+```

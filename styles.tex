@@ -1,0 +1,25 @@
+% hoqc start inserted styles.tex (via yaml 'in_header:')
+
+% definitions related to graphics
+\usepackage{subfig}
+%\usepackage[margin=10pt,font=small,labelfont=bf,labelsep=endash]{caption}
+%\usepackage{graphicx}
+%\usepackage{epstopdf}
+% ensure sans-serif is the default
+\renewcommand*{\familydefault}{\sfdefault}
+% define my alias for text macros
+\newcommand{\mytextrm}[1]{\textrm{#1}}
+\newcommand{\mytextsf}[1]{\textsf{#1}}
+\newcommand{\mytexttt}[1]{\texttt{#1}}
+\newcommand{\mytextit}[1]{\textit{#1}}
+\newcommand{\mytextsl}[1]{\textsl{#1}}
+\newcommand{\mytextbf}[1]{\textbf{#1}}
+\newcommand{\mytextsc}[1]{\textsc{#1}}
+\newcommand{\myemp}[1]{\emp{#1}}
+\newcommand{\BSLASH}[1]{\texttt{\char`\\}{#1}}
+\newcommand{\mysim}{$\sim$} % use when want to see a tilde in equation 
+\newcommand{\mytildev}{\char`\~} % use when want to see a tilde
+\newcommand{\mytilde}{~}  % use in rmd so that it survives knitr and pandoc
+\newcommand{\mybslash}{ }
+
+% hoqc end inserted styles.tex (via yaml 'in_header:')
