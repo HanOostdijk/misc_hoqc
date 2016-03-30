@@ -10,8 +10,8 @@ output:
   pdf_document:
     includes:
       in_header: 
-      - 'D:/data/R/default_working_directory/styles.tex'
-      - 'D:/data/R/default_working_directory/styles_hi.tex'
+      - 'styles.tex'
+      - 'styles_hi.tex'
     keep_tex: no
 geometry: 
   - a4paper 
@@ -31,7 +31,7 @@ library(dplyr)
 ```
 ```{r echo=F,message=F,warning=F}
 library(xtable)
-source('D:/data/R/default_working_directory/util1.r')
+source('util1.r')
 preview_lines = 5
 ```
 
