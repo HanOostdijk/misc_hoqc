@@ -11,8 +11,7 @@
 *.Rproj
 
 # intermediate rmarkdown/pandoc/latex files
-extra1.tex
-extra2.tex
+*.tex
 *_files
 
 # produced vignettes
