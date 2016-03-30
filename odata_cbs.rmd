@@ -65,7 +65,7 @@ Om data van de CBS server te halen gebruiken de **get_cbs_data** functie. Na oph
 get_cbs_data <- function (root, table_name=NULL, save_file_name = NULL) {
   if (!is.null(table_name)) {
     f  = curl_escape(table_name)
-    f  = paste0(myroot, f)
+    f  = paste0(root, f)
   } else{
     f  = root
   }
