@@ -186,14 +186,12 @@ TypedDataSet   = copy_table(x1['TypedDataSet'],data_table_fun)
 sapply(TypedDataSet,class)
 ``` 
 ```{r echo=F,results='asis'}
-df    = TypedDataSet[1:preview_lines,]
+df    = TypedDataSet[1:preview_lines,]  %>%
+    select(Geslacht,Leeftijd,Perioden,GeneesmiddelengroepATC,
+      PersonenMetVerstrekteGeneesmiddelen_1,PersonenMetGeneesmiddelenRelatief_2) 
 cap3  = 'Informatie in http://opendata.cbs.nl/ODataFeed/OData/81071NED/TypedDataSet'
-create_xtable(df,filename='odata_cbs2_t2') 
-files = c('odata_cbs2_t2') # filenames (without suffix tex)
-label = 'lbl3' # label (sublabels have suffix a,b, ...)
-cap   = cap3
-caps  = c('', '')
-print_table_sbs(files,label,cap,caps,scalebox=0.6) 
+print(xtable(df,caption=def_tab('lbl3',cap3),digits=c(rep(0,6),2)),
+    include.rownames=F,table.placement='!htbp',scalebox=0.7)
 ```
 De eerste `r preview_lines`  regels van deze tabel vind je `r ref_tab('lbl3')`. Je ziet dat hierin alle kolommen die géén *Topic* zijn 
 (`r ref_tab('lbl3',prefix='volgens')` ) gecodeerd zijn. Verder zijn alle kolommen (ook de *Topic* velden) *character*.
@@ -233,15 +231,11 @@ for (dim in dim_vars$Key) {
 De eerste `r preview_lines`  regels van de gedecodeerde tabel vind je `r ref_tab('lbl4')`. 
 ```{r echo=F,results='asis'}
 df    = tt[1:preview_lines,] %>%
-    select(Geslacht,Leeftijd,Perioden,
+    select(Geslacht,Leeftijd,Perioden,GeneesmiddelengroepATC,
       PersonenMetVerstrekteGeneesmiddelen_1,PersonenMetGeneesmiddelenRelatief_2) 
 cap4  = 'Informatie in het gedecodeerde TypedDataSet data.frame'
-create_xtable(df,filename='odata_cbs2_t4',digits=c(rep(0,5),2)) 
-files = c('odata_cbs2_t4') # filenames (without suffix tex)
-label = 'lbl4' # label (sublabels have suffix a,b, ...)
-cap   = cap4
-caps  = c('', '')
-print_table_sbs(files,label,cap,caps,scalebox=0.6) 
+print(xtable(df,caption=def_tab('lbl4',cap4),digits=c(rep(0,6),2)),
+    include.rownames=F,table.placement='!htbp',scalebox=0.6)
 ```
 
 # Session info
