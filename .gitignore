@@ -4,6 +4,7 @@
 
 # Session Data files
 .RData
+*_cache
 
 # RStudio files
 .Rproj.user/

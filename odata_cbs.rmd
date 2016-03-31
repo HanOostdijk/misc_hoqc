@@ -3,7 +3,7 @@ params:
   include: !r FALSE
 title: "Benaderen Open Data van CBS vanuit R"
 author: "Han Oostdijk (www.hanoostdijk.nl)"
-date: "30 maart 2016"
+date: "31 maart 2016"
 graphics: yes
 linkcolor: blue
 output: 
@@ -19,9 +19,11 @@ geometry:
   - margin=1in
 ---
 
-```{r child='D:/data/R/default_working_directory/setup.rmd'}
+```{r child='setup.rmd'}
 ```
-
+```{r eval=F,echo=F}
+opts_chunk$set(cache=TRUE,cache.extra = list(R.version, sessionInfo()))
+```
 # Gebruikte R libraries
 ```{r echo=T,message=F,warning=F}
 library(curl)
@@ -240,4 +242,9 @@ label = 'lbl4' # label (sublabels have suffix a,b, ...)
 cap   = cap4
 caps  = c('', '')
 print_table_sbs(files,label,cap,caps,scalebox=0.6) 
+```
+
+# Session info
+```{r}
+sessionInfo()
 ```
