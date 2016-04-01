@@ -33,7 +33,6 @@ library(dplyr)
 ```
 ```{r echo=F,message=F,warning=F}
 library(xtable)
-source('util1.r')
 preview_lines = 5
 ```
 
