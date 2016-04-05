@@ -3,7 +3,7 @@ params:
   include: !r FALSE
 title: "Benaderen Open Data van CBS vanuit R"
 author: "Han Oostdijk (www.hanoostdijk.nl)"
-date: "1 april 2016"
+date: "5 april 2016"
 graphics: yes
 linkcolor: blue
 output: 
@@ -38,15 +38,15 @@ preview_lines = 5
 
 # Inleiding
 <!-- NB in de toevoegsels heb ik de @ en $ moeten escapen (met \) om ze in de pdf goed te krijgen! --> 
-Het is nog maar gedeeltelijk gelukt toegang te krijgen tot de CBS open data. Ik heb nog de volgende vragen:
+Tijdens het schrijven van de eerste versie van dit document had nog twee vragen die ondertussen beantwoord zijn:
 
 - hoe krijg ik grote bestanden binnen (meer dan 10000 regels)? \newline 
-Sinds de eerste versie van dit document is deze vraag beantwoord: je kunt aan de url toevoegen een constructie als *?\$skip=10000\&\$top=200* om de records 10001 t.m. 10200 te lezen.
+Je kunt aan de url toevoegen een constructie als *?\$skip=10000\&\$top=200* om de records 10001 t.m. 10200 te lezen.
 - hoe doe ik een query? \newline 
-Toevoegen aan de url van *?\$top=10\&\$skip=3\&\$filter=substring(Perioden,0,4) eq '2013'* werkt niet voor de CBS server. Een soortgelijke constructie werkt wel voor http://services.odata.org/OData/OData.svc/Products 
-met *?\$top=5\&\$skip=3\&\$filter=Price le 20*.
+In het R package **cbsodataR** van Edwin de Jonge zag ik dat een toevoeging van  
+*?\$format=atom\&\$filter=substring(Key,0,4)\mytilde ge\mytilde '2010'* wel werkt. Ik moet nog kijken hoe  *top* en *skip* werkt in combinatie met zo'n filter. 
 
-Hieronder laat ik zien tot hoever ik ben gekomen met het inlezen van een CBS tabel die aangeeft hoeveel mensen (gesplitst naar geslacht en leeftijd) er in bepaalde jaren gebruik maken van bepaalde geneesmiddelen (groepen). De tabel heeft als identificatie **81071NED** en wordt omschreven als *Personen met verstrekte geneesmiddelen; leeftijd en geslacht*.
+Hieronder laat ik zien tot hoever ik ben gekomen met het inlezen van een CBS tabel die aangeeft hoeveel mensen (gesplitst naar geslacht en leeftijd) er in bepaalde jaren gebruik maken van bepaalde geneesmiddelen (groepen). Ik werk hier zonder query en met het maximum van 10000 records (dus alsof de bovenstaande vragen nog niet beantwoord zijn). De tabel heeft als identificatie **81071NED** en wordt omschreven als *Personen met verstrekte geneesmiddelen; leeftijd en geslacht*.
 
 # Gebruikte documentatie
 De file 
