@@ -1,0 +1,130 @@
+## Functions related to CBS maps and preparing of plot data set
+
+### **plot_NL** 
+This function merges the information of a CBS map file with a data.frame
+```{r eval=F}
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+library(rgdal)
+library(rgeos)
+library(maptools)
+
+plot_NL <- function (dsn,               # map data set to use 
+        data_df,                        # data to use
+        plot_var,                       # name variable to plot
+        plot_varc     = plot_var,       # caption variable to plot
+        data_linkvar  = 'RegioS_coded', # name variable to link to map
+        labels        = F,              # labels to plot?
+        label_var     = NULL,           # name variable that contains labels
+        co            = F)              # check overlap labels?
+  {
+  mylayers            = ogrListLayers(dsn)
+  gp                  = readOGR(dsn, mylayers[1], disambiguateFIDs = T)
+  gp                  = spTransform(gp, CRS("+init=epsg:4238"))
+  gp.f                = fortify(gp)
+  gp@data$id          = rownames(gp@data)
+  gp@data$gp_code     = as.character(gp@data$statcode)
+  data_df$plot_var    = data_df[,plot_var]
+  if (!is.null(label_var)) {
+    data_df$label_var = data_df[,label_var]
+  }
+  gp@data             =  gp@data %>%
+    inner_join(data_df, by = c('gp_code' = data_linkvar))
+  gp.f                = merge(gp.f, gp@data, by.x = "id", by.y = "id") %>%
+    arrange(group,piece,order)
+  
+  if (labels==T) { 
+    gp.n = gp.f %>%
+      group_by(statnaam) %>%
+      summarize(
+        minlat  = min(lat),
+        maxlat  = max(lat),
+        minlong = min(long),
+        maxlong = max(long),
+        label_var  = first(label_var)
+      ) %>%
+      mutate(cenlat  = (minlat + maxlat) / 2,
+        cenlong = (minlong + maxlong) / 2) %>%
+      select(statnaam, lat = cenlat, long = cenlong,label_var)
+  }
+  
+  p = ggplot(gp.f,
+    aes(long, lat, color = plot_var)) +
+    geom_polygon(aes(group = group, fill = plot_var), color = 'black' )  +
+    labs(x = "longitude", y = "latitude") +
+    scale_fill_distiller(plot_varc,palette = "Spectral") +
+    scale_x_continuous(labels=format_WE) +
+    scale_y_continuous(labels=format_NS) 
+  if  (labels==T) { 
+    p = p +
+      geom_text(data = gp.n, aes(label = label_var), color = 'black', check_overlap = co)
+  }
+  return(p)
+}
+```
+### **dsn_map**
+This function selects one of the three region map files that I have downloaded from the  
+[nationaalgeoregister](http://nationaalgeoregister.nl/geonetwork/srv/dut/search) 
+website. See [Downloading a mapfile](#DownloadMapfile) for details.
+
+```{r eval=F}
+dsn_map <- function(gem_prov) {
+  if (gem_prov == 'P') {
+    dsn        = "D:/data/maps/cbs_provincies.gml"
+  } else if (gem_prov == 'C') {
+    dsn        = "D:/data/maps/cbs_coropplusgebied.gml"
+  } else {
+    dsn        = "D:/data/maps/cbs_gemeenten.gml"
+  }
+}
+```
+
+### Formatting functions
+These functions format the values of the longitude and lattitude axes of the plot. 
+```{r eval=F}
+format_WE <- function(x,dig=3) {
+  format_WENS(x,'WE',dig)
+}
+
+format_NS <- function(x,dig=3) {
+  format_WENS(x,'NS',dig)
+}
+
+format_WENS <- function(x,WENS,dig=3) {
+  if (WENS=='WE') {
+    Z1 = 'W' ; Z2 = 'E'
+  } else {
+    Z1 = 'S' ; Z2 = 'N'
+  }
+  f  = sprintf('%%.%.0ff',dig)
+  xf = sprintf(f,abs(x))
+  Z  = ifelse(x < 0, Z1, ifelse(x > 0, Z2,'')) 
+  # e= bquote(.(xf)*degree*~.(quote(Z)))
+  # e=as.expression(e) # fails in plot why ?
+  f = parse(text = paste(xf, "*degree~", Z),keep.source = F)
+}
+```
+
+### Downloading a mapfile {#DownloadMapfile}
+To download a CBS mapfile:
+
+- press the download button on  [CBS gebiedsindelingen](http://www.nationaalgeoregister.nl/geonetwork/srv/dut/search?hl=dut&#|effe1ab0-073d-437c-af13-df5c5e07d6cd)
+- in the pop-up window specify in 'Kies een kaartlaag:' which map you want to download. I did choose e.g. 
+'cbs_provincie_2015_gegeneraliseerd_voorlopig' and 'cbs_gemeente_2015_gegeneraliseerd_voorlopig'
+- in the same window specify the output format. I did choose 'GML 2'.
+- I did not change the other fields and pressed then the 'Download data' button
+
+I got the output in my browser window and saved that with a 'gml' extension. In the browser you also see the 
+[request](http://geodata.nationaalgeoregister.nl/cbsgebiedsindelingen/wfs?&REQUEST=GetFeature&SERVICE=WFS&VERSION=1.1.0&TYPENAME=cbs_coropplusgebied_2015_gegeneraliseerd_voorlopig&BBOX=4445.102133683104,306438.01749059395,286021.2804958181,621209.8616218832&SRSNAME=EPSG:28992&OUTPUTFORMAT=GML2) that was generated. You could use that directly (not interactive) with the following lines of code:
+```{r eval=F}
+map_url = "http://geodata.nationaalgeoregister.nl/cbsgebiedsindelingen/wfs"
+map_qry =  paste0("?&REQUEST=GetFeature&SERVICE=WFS&VERSION=1.1.0&",
+                 "TYPENAME=cbs_coropplusgebied_2015_gegeneraliseerd_voorlopig&",
+                 "SRSNAME=EPSG:28992&OUTPUTFORMAT=GML2")
+r       = curl_fetch_memory(paste0(map_url, curl_escape(map_qry)))
+x       = rawToChar(r$content)
+map_fle = file("D:/data/maps/cbs_coropplusgebied.gml",open="wt")
+writeChar(x,map_fle)
+close(map_fle)
+```

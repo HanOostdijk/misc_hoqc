@@ -1,0 +1,142 @@
+---
+params:
+  include: !r FALSE
+title: "Creating a plot based on OData tables by Statistics Netherlands (CBS)"
+author: "Han Oostdijk (www.hanoostdijk.nl)"
+date: "6 april 2016"
+graphics: yes
+linkcolor: blue
+output: 
+  pdf_document:
+    includes:
+      in_header: 
+      - 'styles.tex'
+      - 'styles_hi.tex'
+    keep_tex: no
+geometry: 
+  - a4paper 
+  - portrait
+  - margin=1in
+---
+
+```{r child='setup.rmd'}
+```
+```{r eval=F,echo=F}
+opts_chunk$set(cache=TRUE,cache.extra = list(R.version, sessionInfo()))
+```
+# R libraries used 
+```{r echo=T,message=F,warning=F}
+library(curl)
+library(magrittr)
+library(XML)
+library(dplyr)
+library(ggplot2)
+library(rgdal)
+library(rgeos)
+library(maptools)
+```
+```{r eval=F,echo=F,message=F,warning=F}
+library(xtable)
+```
+
+# Introduction
+This document gives an example of accessing data of Statistics Netherlands (CBS). 
+Because I was not aware of the R package [**cbsodataR**](https://cran.r-project.org/web/packages/cbsodataR/) by Edwin de Jonge I created some functions to do this. 
+After that I show how this data can be merged with CBS map information to produce a map of the Netherlands coloured according to one of these statistics. 
+
+# References about the OData environment of Statistics Netherlands.
+The file
+[2014handleidingcbsopendataservices.pdf](http://www.cbs.nl/nl-NL/menu/cijfers/statline/open-data/2013-handleiding-cbs-open-data-api-v10.htm) (in Dutch) describes the OData environment at CBS. The   [catalog](http://opendata.cbs.nl/dataportaal/portal.html) contains information about the available data. \newline 
+A introduction to **OData** can be found in 
+[Introducing OData](https://msdn.microsoft.com/en-us/data/hh237663.aspx) 
+and full details in [OData - the best way to REST](http://www.odata.org/). When writing queries a useful reference is paragraph *11.2.5 Querying Collections* in the 
+[protocol document](http://docs.oasis-open.org/odata/odata/v4.0/errata02/os/complete/part1-protocol/odata-v4.0-errata02-os-part1-protocol-complete.html#_Toc406398302).
+
+# Main code 
+Here we show the code for a specific map that we want to create. We include (source) the program files *odata.r* and *plot_NL.r* that will be described later. I selected from the  [catalog](http://opendata.cbs.nl/dataportaal/portal.html) a table with a regional component: **82935NED**. 
+This has 
+[information](http://opendata.cbs.nl/dataportaal/portal.html?_la=nl&_catalog=CBS&tableId=82935NED&_theme=460) 
+(in Dutch only) about investment in various fixed assets for (the regions of) the Netherlands. Let's say that I want to see how total total investment in 2013 (the last year available) is distributed over the provinces in the form of a map.
+
+## Access describing information (meta data) of table
+The 
+[information](http://opendata.cbs.nl/dataportaal/portal.html?_la=nl&_catalog=CBS&tableId=82935NED&_theme=460) 
+(in Dutch only) in the catalog gives some information about the table. This information is also available in table form and we will read this into the variables:
+
+- table_list : a named character vector that contains the full url of the sub tables. We are interested in the sub table *TypedData* that contains the topic data according to some coded dimensions. So for each dimension there is also a sub table with the mapping coded <-> decoded value.
+- props : a data.frame containing the dimensions and topics 
+- tabinfo : information about the table 
+
+We can use this information to see what is available and to build the code that selects precisely the information that we need.
+```{r}
+source('odata.r')
+source('plot_NL.r')
+
+myroot   = "http://opendata.cbs.nl/ODataFeed/OData"
+mytable  = "/82935NED" 
+
+table_list = get_cbs_table_info(get_cbs_data(myroot,mytable))
+
+props      = copy_table(table_list['DataProperties'],mt=prop_table_fun)
+tabinfo    = copy_table(table_list['TableInfos'])
+```
+
+## Select the information we need
+We are interested in a small table, so we could read the entire table in R and do the selections there. Statistics Netherlands also handles very large tables and in that case it is better to do some preprocessing on its server by using a query statement. (See paragraph *11.2.5 Querying Collections* in the 
+[protocol document](http://docs.oasis-open.org/odata/odata/v4.0/errata02/os/complete/part1-protocol/odata-v4.0-errata02-os-part1-protocol-complete.html#_Toc406398302) for query functions.) In any case the server will not transfer more than 10000 records per request. Use *\$top=* and *\$skip=* clauses in such cases. \newline 
+For demonstration purposes we will show both selection methods here: *query* in the request and *filter* in the R code. So we request the *TypedDataSet* table and use R code to select the information we need:
+
+- *couple_data* function ensures that all coded dimensions are replaced by their decoded counterparty and that the topic fields are made numeric. Only the region dimension is also kept in coded form
+- *filter* selects only province data from 2013 (repeats the selection in the query)
+- *mutate* keeps the first 4 characters of the region code (removes trailing blanks)
+- *mutate* creates the variable *totFixedAssetsr* in billions of euro
+- *mutate* creates the variable *label_var* with the formatted value of total fixed assets
+- *select* only keeps the variables that we need for the plot
+
+```{r}
+query      = paste0( "?$format=atom&",
+                     "$filter=substring(Perioden,0,4) eq '2013' and ",
+                     "substring(RegioS,0,2) eq 'PV'")
+TypedData  = copy_table(table_list['TypedDataSet'],mt=data_table_fun,q=query)
+
+data_df    = 
+  couple_data (TypedData,dim_vars(props),topic_vars(props),table_list) %>%
+  filter(grepl('^PV',.$RegioS_coded)&Perioden=='2013') %>%
+  mutate(RegioS_coded=substring(RegioS_coded,1,4)) %>%
+  mutate(totFixedAssets=TotaleInvesteringen_1/1000) %>%
+  mutate(label_var=sprintf('%.1f',totFixedAssets)) %>% 
+  select(RegioS_coded,totFixedAssets,label_var)
+```
+
+## Combine the data with map information and plot
+With the *plot_NL* function we combine the selected information (on province level) with the CBS map information of the same level. We label each province with the total amount of fixed assets that we formatted in variable *label_var* and colour it based on the same amount. The result can be seen 
+`r ref_tab('r1',F)`.
+
+```{r echo=F}
+figcap1 = 'Total fixed assets (in bln. euro) per province for 2013 (source CBS)'
+```
+```{r r1,fig.cap=figcap1,out.width="6in",out.height="7in",fig.width=12,fig.height=14}
+p = plot_NL(dsn_map('P'),       # map to use (provincial)
+    data_df,                    # data to use
+    'totFixedAssets',           # name variable to plot
+    'total\ninvestments\nbln euro',    # caption variable to plot
+    'RegioS_coded',             # name variable to link to map
+    labels=T,                   # labels to plot?
+    label_var='label_var',      # name variable that contains labels
+    co=T)                       # check overlap labels ?
+print(p)
+```
+
+# Session info
+```{r}
+sessionInfo()
+```
+\clearpage
+
+# Appendix 
+
+```{r child='odata.rmd'}
+```
+
+```{r child='plot_NL.rmd'}
+```
