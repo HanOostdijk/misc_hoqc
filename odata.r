@@ -11,13 +11,14 @@ std_namespaces = c(ns="http://www.w3.org/2005/Atom",
   d="http://schemas.microsoft.com/ado/2007/08/dataservices") 
 
 
-get_cbs_data <- function (root, query=NULL, save_file_name = NULL) {
+get_cbs_data <- function (url, query=NULL, save_file_name = NULL) {
   # query  = "?$format=atom&$filter=GeneesmiddelengroepATC eq '100000'"
-  if (!is.null(query)) {
-    f  = paste0(root,URLencode(query))
+  if (!is.null(url)) {
+    f  = paste0(url,query)
   } else{
-    f  = root
+    f  = url
   }
+  f  = URLencode(f)
   r  = curl_fetch_memory(f)
   x  = rawToChar(r$content)
   doc = xmlParse(x,asText =T)
@@ -35,8 +36,8 @@ get_cbs_table_info <- function(doc) {
   return(hrefs)
 }
 
-copy_table <- function (ti,  mt = NULL, query= NULL, save_XML = NULL) {
-  n1 = paste0('temp_', names(ti))
+copy_table <- function (dsn,  mt = NULL, query= NULL, save_XML = NULL) {
+  n1 = paste0('temp_', names(dsn))
   if (is.null(save_XML)) {
     save_file_name = NULL
   } else if (nchar(save_XML) == 0) {
@@ -44,10 +45,21 @@ copy_table <- function (ti,  mt = NULL, query= NULL, save_XML = NULL) {
   } else {
     save_file_name = save_XML
   }
-  t1    = get_cbs_data(ti, query, save_file_name = save_file_name)
+  t1    = get_cbs_data(dsn, query, save_file_name = save_file_name)
   if (is.null(mt))
     return(t1)
   t1d = mt(t1)
+  next1 = xpathSApply(t1,"//ns:link[@rel='next']",
+    function(x) xmlAttrs(x)[["href"]],
+    namespaces = std_namespaces)
+  while (length(next1)> 0 ) {
+    t1    = get_cbs_data(next1) # no save for part2 and later
+    t1d   = rbind(t1d,t1d = mt(t1))
+    next1 = xpathSApply(t1,"//ns:link[@rel='next']",
+      function(x) xmlAttrs(x)[["href"]],
+      namespaces = std_namespaces)
+  }
+  return(t1d)
 }
 
 data_table_fun <- function(doc) {
