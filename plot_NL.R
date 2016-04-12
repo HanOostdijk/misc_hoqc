@@ -58,7 +58,7 @@ plot_NL <- function (dsn,         # map data set to use
   return(p)
 }
 
-# insert text about origin of map files
+
 dsn_map <- function(gem_prov) {
   if (gem_prov == 'P') {
     dsn        = "D:/data/maps/cbs_provincies.gml"
