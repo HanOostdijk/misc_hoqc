@@ -9,3 +9,4 @@ Currently it contains these examples with R (and knitr and RMarkdown):
 - odata_cbs: this entry (with text in Dutch) describes how to read data from the CBS (Statistics Netherlands, also known as the Dutch Central Bureau of Statistics) with the OData Protocol. 
 - odata_cbs_plot: this entry also describes how to read data from the CBS with the OData Protocol. The data is merged with CBS map information to present the data in the form of a map.
 - debug1: expands on an idea of John Mount that facilitates debugging of a function by saving the arguments at the time that it fails in an RDS file. 
+- tedcsv : shows how to read the csv version of the TED database that contains records about European public procurement. It is a large file with embedded separators and sometimes a missing last field. Selected data is copied to a data.frame and from there to a Mongodb database. Examples of JSON queries on the database are included.
