@@ -86,7 +86,7 @@ Because the downloaded files are large (for the combined 2009-2015 file about 1.
 ```{r}
 ted_copy_csv <- function (infile,outfile,skip=0,nrows=5) {
   g     = file(outfile, open = 'wt') 
-  on.exit(close(g), add = FALSE) 
+  on.exit(close(g)) 
   d     = ted_read_skip(infile,skip=0,n=5) 
   writeLines(d,g,useBytes = T)
   invisible(NULL)
@@ -126,7 +126,7 @@ fun_id  <- function (df) {
 ```
 
 # Function for correcting the csv records
-To include each csv record as a row in a *data.frame* we have correct the following issues:
+To include each csv record as a row in a *data.frame* we have to correct the following issues:
 
 - sometimes the last field is missing. When that is the case we simply add a blank
 - sometimes fields contain embedded commas as in *"39160000,45261100,45261213,45421100"* where a  list of CPV (Common Procurement Vocabulary) items is given. In this case (only) we replace the commas  with blanks. 
@@ -229,7 +229,7 @@ ted_read_table <- function(
     cat('possibly data lost', '\n')
   })
   numread = length(t1)      # number of lines read
-  if (is.null(t1) | length(t1) == 0) {
+  if (is.null(t1) | numread == 0) {
    return(list(df = df, numread = numread)) # nothing read: return
   }
   # do preselection
